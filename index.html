@@ -1,0 +1,165 @@
+<head>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+            font-size: 1rem;
+            font-weight: 400;
+            line-height: 1.5;
+            color: #212529;
+            text-align: left;
+            background-color: #fff;
+            background-color: white;
+        }
+        
+        .page-header {
+            padding-bottom: 9px;
+            margin: 40px 0 20px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        figure {
+            margin: 20px;
+        }
+        
+        .form-group {
+            margin: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="page-header">
+            <h1>Loop, Listen, Select, and Save</h1>
+            <p class="lead">
+                Open an audio file named like "participant-experiment.wav". Listen for when the first trial begins and enter the time code. Enter how long each trial is and and how many trials were performed. Press any letter key to code the current trial, and begin looping the next one. Click the yellow undo button to remove the last coded trial.
+            </p>
+        </div>
+        <h3 id="audioLabel">Select the audio file</h3>
+        <form>
+            <div class="form-group">
+                <input type="file" id="input">
+                <p class="help-block">Select the audio file from your computer.</p>
+            </div>
+            <div class="form-group">
+                <label for="startTime"> First Trial Start Time (Seconds) </label>
+                <input class="form-control" id="startTime" type="number" step="0.1" value="" />
+            </div>
+            <div class="form-group">
+                <label for="loopLength"> Uttereance Length (Seconds) </label>
+                <input class="form-control" id="loopLength" type="number" step="0.1" value="3.0" />
+            </div>
+            <div class="form-group">
+                <label for="trialNo"> Trial Number (Zero Indexed) </label>
+                <input class="form-control" id="trialNo" type="number" step="1" value="0" />
+            </div>
+            <div class="form-group">
+                <label for="maxTrialNo"> Maximum Trial Number (Zero Indexed) </label>
+                <div class="row" id="maxTrialNo" style="margin: 0px">
+                    <input class="form-control col-8" type="number" step="1" value="216" />
+                    <div class="col-1"></div>
+                    <button id="undo" type="button" class="col-3 btn btn-warning">Undo</button>
+                </div>
+            </div>
+        </form>
+        <figure>
+            <audio id="sound" style="width: 100%" controls>
+                Your browser does not support the
+                <code>audio</code> element.
+            </audio>
+        </figure>
+
+        <h3>Results</h3>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th scope="col">Participant Number</th>
+                    <th scope="col">Experiment Number</th>
+                    <th scope="col">Trial Number</th>
+                    <th scope="col">Keypress</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+        <script>
+            function getInt(id) {
+                return parseInt(document.getElementById(id).value);
+            }
+
+            function setInt(id, val) {
+                document.getElementById(id).value = String(val);
+            }
+
+            function getFloat(id) {
+                return parseInt(document.getElementById(id).value);
+            }
+
+            function fileDetails() {
+                const fileList = document.getElementById("input").files;
+                if (fileList.length > 0) {
+                    const file = fileList[0].name
+                    const [participantNo, experimentAndExt] = file.split("-");
+                    const experimentNo = experimentAndExt.split(".")[0];
+                    document.getElementById("audioLabel").innerHTML = "Loaded Audio: Participant " + participantNo + ", Experiment " + experimentNo;
+                    return [participantNo, experimentNo]
+                } else {
+                    document.getElementById("audioLabel").innerHTML = "Select the audio file";
+                    return [null, null];
+                }
+            }
+            input.onchange = function(e) {
+                var sound = document.getElementById('sound');
+                sound.src = URL.createObjectURL(this.files[0]);
+                fileDetails()
+            }
+            window.onkeydown = function(e) {
+                const pressed = String.fromCharCode(e.keyCode);
+                if (pressed >= "A" && pressed <= "Z") {
+                    [participantNo, experimentNo] = fileDetails()
+                    const trialNo = getInt("trialNo");
+                    const maxTrialNo = getInt("maxTrialNo");
+                    const table = document.querySelector("tbody");
+                    var row = table.insertRow(0);
+                    row.insertCell(0).innerHTML = participantNo;
+                    row.insertCell(1).innerHTML = experimentNo;
+                    row.insertCell(2).innerHTML = trialNo;
+                    row.insertCell(3).innerHTML = pressed;
+                    if (trialNo < maxTrialNo) {
+                        setInt("trialNo", trialNo + 1)
+                    } else {
+                        URL.revokeObjectURL(this.src);
+                        alert("Finished!")
+                    }
+                }
+            };
+            document.getElementById("undo").onclick = function(e) {
+                const body = document.querySelector("tbody")
+                body.removeChild(body.firstElementChild)
+                setInt("trialNo", getInt("trialNo") - 1)
+            }
+            document.querySelector("audio");
+            var elem = document.querySelector("audio");
+            elem.onload = function(e) {
+                fileDetails();
+            }
+            elem.onload(null);
+            elem.ontimeupdate = function(e) {
+                const startTime = getFloat("startTime");
+                const loopLength = getFloat("loopLength");
+                const trialNo = getInt("trialNo")
+                    //debugger;
+                const loopStart = startTime + loopLength * trialNo;
+                const loopEnd = loopStart + loopLength;
+
+                const player = e.currentTarget;
+                if (player.currentTime > loopEnd || player.currentTime < loopStart) {
+                    player.currentTime = loopStart;
+                }
+            }
+        </script>
+    </div>
+</body>
